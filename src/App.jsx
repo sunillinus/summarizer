@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import SettingsModal from './components/SettingsModal'
 import { useAISummary } from './hooks/useAISummary'
 
@@ -8,8 +8,37 @@ export default function App() {
   const [summary, setSummary] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [error, setError] = useState(null)
+  const [isFirstLoad, setIsFirstLoad] = useState(true)
 
   const isYouTubeUrl = (url) => url?.includes('youtube.com/watch') || url?.includes('youtu.be/')
+
+  // Check for cached summary
+  const checkCachedSummary = useCallback(async (url) => {
+    // Check memory cache
+    if (summaries.has(url)) {
+      return summaries.get(url)
+    }
+    // Check persistent storage
+    const stored = await chrome.storage.local.get(['summaryCache'])
+    if (stored.summaryCache?.[url]) {
+      return stored.summaryCache[url]
+    }
+    return null
+  }, [summaries])
+
+  // Handle tab change
+  const handleTabChange = useCallback(async (tab) => {
+    setCurrentTab(tab)
+    setError(null)
+
+    // Check if we have a cached summary for this URL
+    const cached = await checkCachedSummary(tab.url)
+    if (cached) {
+      setSummary(cached)
+    } else {
+      setSummary(null)
+    }
+  }, [checkCachedSummary])
 
   // Get active tab on mount
   useEffect(() => {
@@ -20,14 +49,27 @@ export default function App() {
         setError('Could not get current tab')
       }
     })
-  }, [])
 
-  // Auto-summarize when tab is loaded
+    // Listen for tab changes from background
+    const messageListener = (message) => {
+      if (message.type === 'TAB_CHANGED' && message.tab) {
+        setIsFirstLoad(false)
+        handleTabChange(message.tab)
+      }
+    }
+    chrome.runtime.onMessage.addListener(messageListener)
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(messageListener)
+    }
+  }, [handleTabChange])
+
+  // Auto-summarize only on first load (when panel opens)
   useEffect(() => {
-    if (currentTab?.url && !summary && !loadingSummary) {
+    if (currentTab?.url && isFirstLoad && !summary && !loadingSummary) {
       handleSummarize()
     }
-  }, [currentTab])
+  }, [currentTab, isFirstLoad])
 
   const handleSummarize = async (forceRefresh = false) => {
     if (!currentTab?.url) return
@@ -43,7 +85,19 @@ export default function App() {
     }
   }
 
-  const domain = currentTab?.url ? new URL(currentTab.url).hostname.replace('www.', '') : ''
+  const domain = currentTab?.url ? (() => {
+    try {
+      return new URL(currentTab.url).hostname.replace('www.', '')
+    } catch {
+      return ''
+    }
+  })() : ''
+
+  // Determine what to show in the content area
+  const showLoading = loadingSummary
+  const showError = error && !loadingSummary
+  const showSummary = summary && !loadingSummary && !error
+  const showSummarizeButton = currentTab && !summary && !loadingSummary && !error
 
   return (
     <div className="min-h-full bg-gray-50">
@@ -84,7 +138,7 @@ export default function App() {
       {/* Content */}
       <div className="p-4">
         {/* Loading state */}
-        {loadingSummary && (
+        {showLoading && (
           <div className="flex flex-col items-center justify-center py-12 text-gray-500">
             <svg className="animate-spin h-8 w-8 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -99,7 +153,7 @@ export default function App() {
         )}
 
         {/* Error state */}
-        {error && !loadingSummary && (
+        {showError && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-700 text-sm">{error}</p>
             <button
@@ -111,8 +165,27 @@ export default function App() {
           </div>
         )}
 
+        {/* Summarize button - shown when no summary exists */}
+        {showSummarizeButton && (
+          <div className="flex flex-col items-center justify-center py-12">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-300 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <p className="text-gray-500 text-sm mb-4">No summary for this page yet</p>
+            <button
+              onClick={() => handleSummarize()}
+              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+              </svg>
+              Summarize Page
+            </button>
+          </div>
+        )}
+
         {/* Summary */}
-        {summary && !loadingSummary && (
+        {showSummary && (
           <div>
             {/* Header with regenerate */}
             <div className="flex items-center justify-between mb-3">

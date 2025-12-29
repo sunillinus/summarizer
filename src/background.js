@@ -6,6 +6,43 @@ chrome.action.onClicked.addListener((tab) => {
 // Set the side panel behavior to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
 
+// Track the current tab URL to detect changes
+let currentTabUrl = null
+
+// Notify side panel of tab changes
+async function notifyTabChange() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    if (tab && tab.url !== currentTabUrl) {
+      currentTabUrl = tab.url
+      // Send message to side panel (it may not be open, so catch errors)
+      chrome.runtime.sendMessage({
+        type: 'TAB_CHANGED',
+        tab: { url: tab.url, title: tab.title, id: tab.id }
+      }).catch(() => {}) // Ignore if side panel not open
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+}
+
+// Listen for tab switches
+chrome.tabs.onActivated.addListener(() => {
+  notifyTabChange()
+})
+
+// Listen for URL changes in the current tab
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.url || changeInfo.status === 'complete') {
+    // Check if this is the active tab
+    chrome.tabs.query({ active: true, currentWindow: true }).then(([activeTab]) => {
+      if (activeTab && activeTab.id === tabId) {
+        notifyTabChange()
+      }
+    })
+  }
+})
+
 // Handle messages from side panel
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'FETCH_PAGE_CONTENT') {
