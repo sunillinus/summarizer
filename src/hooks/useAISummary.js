@@ -2,33 +2,73 @@ import { useState, useCallback, useEffect } from 'react'
 
 // Robust JSON parsing with fallback extraction
 function parseAIResponse(text) {
-  // Try direct JSON parsing first
+  // Try to extract and parse JSON
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (jsonMatch) {
+    let jsonStr = jsonMatch[0]
+
+    // Try direct parse first
     try {
-      return JSON.parse(jsonMatch[0])
+      const parsed = JSON.parse(jsonStr)
+      if (parsed.bullets && Array.isArray(parsed.bullets)) {
+        // Clean up bullets - trim whitespace and filter empty
+        parsed.bullets = parsed.bullets
+          .map(b => typeof b === 'string' ? b.trim() : '')
+          .filter(b => b.length > 0)
+        return parsed
+      }
     } catch (e) {
       // JSON malformed, try to fix common issues
-      let fixed = jsonMatch[0]
-        .replace(/,\s*]/g, ']')
-        .replace(/,\s*}/g, '}')
-        .replace(/[\x00-\x1F\x7F]/g, ' ')
-        .replace(/\\'/g, "'")
-        .replace(/"\s*\n\s*"/g, '", "')
+    }
 
-      try {
-        return JSON.parse(fixed)
-      } catch (e2) {
-        // Still failing, extract manually
+    // Fix common JSON issues
+    let fixed = jsonStr
+      // Remove newlines within strings (between quotes)
+      .replace(/("\s*:\s*\[[\s\S]*?\])/g, (match) => {
+        return match.replace(/\n/g, ' ')
+      })
+      // Remove control characters
+      .replace(/[\x00-\x1F\x7F]/g, ' ')
+      // Fix trailing commas
+      .replace(/,\s*]/g, ']')
+      .replace(/,\s*}/g, '}')
+      // Normalize whitespace
+      .replace(/\s+/g, ' ')
+
+    try {
+      const parsed = JSON.parse(fixed)
+      if (parsed.bullets && Array.isArray(parsed.bullets)) {
+        parsed.bullets = parsed.bullets
+          .map(b => typeof b === 'string' ? b.trim() : '')
+          .filter(b => b.length > 0)
+        return parsed
       }
+    } catch (e2) {
+      // Still failing, try regex extraction
+    }
+
+    // Extract bullets using regex from JSON-like structure
+    const bulletRegex = /"([^"]{20,})"/g
+    const bullets = []
+    let match
+    while ((match = bulletRegex.exec(jsonStr)) !== null) {
+      const bullet = match[1].trim()
+      // Skip if it looks like a key name
+      if (!bullet.includes(':') || bullet.length > 50) {
+        bullets.push(bullet)
+      }
+    }
+    if (bullets.length > 0) {
+      return { bullets }
     }
   }
 
-  // Fallback: extract bullets manually
+  // Fallback: extract bullets manually from non-JSON text
   const bullets = []
   const lines = text.split('\n')
   for (const line of lines) {
     const trimmed = line.trim()
+    // Match bullet points: - bullet, • bullet, * bullet, 1. numbered, 1) numbered
     const bulletMatch = trimmed.match(/^(?:[-•*]|\d+[.\)])\s*(.+)/)
     if (bulletMatch && bulletMatch[1].length > 10) {
       bullets.push(bulletMatch[1].trim())
