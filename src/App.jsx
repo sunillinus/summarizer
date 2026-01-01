@@ -40,6 +40,42 @@ export default function App() {
     }
   }, [checkCachedSummary])
 
+  // Handle context menu summarize request
+  const handleContextMenuSummarize = useCallback(async (message) => {
+    setError(null)
+    setSummary(null)
+    setIsFirstLoad(false)
+
+    if (message.mode === 'page') {
+      // Summarize current page
+      setCurrentTab({ url: message.url, title: message.title })
+      const result = await getSummary(message.url, message.title, true)
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        setSummary(result)
+      }
+    } else if (message.mode === 'selection') {
+      // Summarize selected text directly
+      setCurrentTab({ url: message.url, title: message.title, isSelection: true })
+      const result = await getSummary(message.url, message.title, true, message.text)
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        setSummary(result)
+      }
+    } else if (message.mode === 'link') {
+      // Summarize linked page
+      setCurrentTab({ url: message.url, title: message.title, isLink: true })
+      const result = await getSummary(message.url, message.title, true)
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        setSummary(result)
+      }
+    }
+  }, [getSummary])
+
   // Get active tab on mount
   useEffect(() => {
     chrome.runtime.sendMessage({ type: 'GET_ACTIVE_TAB' }, (response) => {
@@ -50,11 +86,14 @@ export default function App() {
       }
     })
 
-    // Listen for tab changes from background
+    // Listen for messages from background
     const messageListener = (message) => {
       if (message.type === 'TAB_CHANGED' && message.tab) {
         setIsFirstLoad(false)
         handleTabChange(message.tab)
+      }
+      if (message.type === 'CONTEXT_MENU_SUMMARIZE') {
+        handleContextMenuSummarize(message)
       }
     }
     chrome.runtime.onMessage.addListener(messageListener)
@@ -62,7 +101,7 @@ export default function App() {
     return () => {
       chrome.runtime.onMessage.removeListener(messageListener)
     }
-  }, [handleTabChange])
+  }, [handleTabChange, handleContextMenuSummarize])
 
   // Auto-summarize only on first load (when panel opens)
   useEffect(() => {
@@ -127,9 +166,17 @@ export default function App() {
         <div className="px-4 py-3 border-b border-gray-200 bg-white">
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs text-gray-500">{domain}</p>
-            {isYouTubeUrl(currentTab.url) && (
-              <span className="px-1.5 py-0.5 text-xs bg-red-100 text-red-700 rounded">YouTube</span>
-            )}
+            <div className="flex gap-1">
+              {currentTab.isSelection && (
+                <span className="px-1.5 py-0.5 text-xs bg-purple-100 text-purple-700 rounded">Selection</span>
+              )}
+              {currentTab.isLink && (
+                <span className="px-1.5 py-0.5 text-xs bg-blue-100 text-blue-700 rounded">Link</span>
+              )}
+              {isYouTubeUrl(currentTab.url) && (
+                <span className="px-1.5 py-0.5 text-xs bg-red-100 text-red-700 rounded">YouTube</span>
+              )}
+            </div>
           </div>
           <h2 className="font-medium text-gray-900 text-sm leading-tight line-clamp-2">{currentTab.title}</h2>
         </div>
@@ -145,7 +192,13 @@ export default function App() {
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             <p className="text-sm">
-              {isYouTubeUrl(currentTab?.url)
+              {currentTab?.isSelection
+                ? 'Summarizing selection...'
+                : currentTab?.isLink && isYouTubeUrl(currentTab?.url)
+                ? 'Opening YouTube video to extract transcript...'
+                : currentTab?.isLink
+                ? 'Fetching linked page and generating summary...'
+                : isYouTubeUrl(currentTab?.url)
                 ? 'Extracting transcript and generating summary...'
                 : 'Generating summary...'}
             </p>

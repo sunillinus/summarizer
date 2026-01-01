@@ -276,19 +276,22 @@ export function useAISummary() {
     })
   }, [])
 
-  const getSummary = useCallback(async (url, title, forceRefresh = false) => {
+  const getSummary = useCallback(async (url, title, forceRefresh = false, rawText = null) => {
+    // For raw text (selection), use a hash as cache key
+    const cacheKey = rawText ? `selection:${url}:${rawText.slice(0, 100)}` : url
+
     // Check cache unless force refreshing
-    if (!forceRefresh) {
+    if (!forceRefresh && !rawText) {
       // Check memory cache first
-      if (summaries.has(url)) {
-        return summaries.get(url)
+      if (summaries.has(cacheKey)) {
+        return summaries.get(cacheKey)
       }
 
       // Check persistent storage
       const stored = await chrome.storage.local.get(['summaryCache'])
-      if (stored.summaryCache?.[url]) {
-        const cached = stored.summaryCache[url]
-        setSummaries(prev => new Map(prev).set(url, cached))
+      if (stored.summaryCache?.[cacheKey]) {
+        const cached = stored.summaryCache[cacheKey]
+        setSummaries(prev => new Map(prev).set(cacheKey, cached))
         return cached
       }
     }
@@ -305,8 +308,13 @@ export function useAISummary() {
         return { error: 'Please configure your API key in settings.' }
       }
 
-      // Fetch page content
-      const content = await fetchPageContent(url)
+      // Use raw text if provided, otherwise fetch page content
+      let content
+      if (rawText) {
+        content = rawText
+      } else {
+        content = await fetchPageContent(url)
+      }
 
       if (!content) {
         return { error: 'Could not fetch article content.' }
@@ -332,13 +340,15 @@ export function useAISummary() {
       }
 
       // Cache the result in memory
-      setSummaries(prev => new Map(prev).set(url, result))
+      setSummaries(prev => new Map(prev).set(cacheKey, result))
 
-      // Persist to storage
-      const stored = await chrome.storage.local.get(['summaryCache'])
-      const cache = stored.summaryCache || {}
-      cache[url] = result
-      await chrome.storage.local.set({ summaryCache: cache })
+      // Persist to storage (skip for selections to avoid bloating storage)
+      if (!rawText) {
+        const stored = await chrome.storage.local.get(['summaryCache'])
+        const cache = stored.summaryCache || {}
+        cache[cacheKey] = result
+        await chrome.storage.local.set({ summaryCache: cache })
+      }
 
       return result
     } catch (error) {

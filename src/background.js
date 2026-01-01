@@ -6,6 +6,65 @@ chrome.action.onClicked.addListener((tab) => {
 // Set the side panel behavior to open on action click
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
 
+// Create context menu items on install
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: 'summarize-page',
+    title: 'Summarize this page',
+    contexts: ['page']
+  })
+
+  chrome.contextMenus.create({
+    id: 'summarize-selection',
+    title: 'Summarize selection',
+    contexts: ['selection']
+  })
+
+  chrome.contextMenus.create({
+    id: 'summarize-link',
+    title: 'Summarize linked page',
+    contexts: ['link']
+  })
+})
+
+// Handle context menu clicks
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === 'summarize-page') {
+    // Open side panel - it will auto-summarize the current page
+    await chrome.sidePanel.open({ windowId: tab.windowId })
+    // Notify side panel to summarize current page
+    chrome.runtime.sendMessage({
+      type: 'CONTEXT_MENU_SUMMARIZE',
+      mode: 'page',
+      url: tab.url,
+      title: tab.title
+    }).catch(() => {})
+  }
+
+  if (info.menuItemId === 'summarize-selection') {
+    // Open side panel and send selected text
+    await chrome.sidePanel.open({ windowId: tab.windowId })
+    chrome.runtime.sendMessage({
+      type: 'CONTEXT_MENU_SUMMARIZE',
+      mode: 'selection',
+      text: info.selectionText,
+      url: tab.url,
+      title: `Selection from: ${tab.title}`
+    }).catch(() => {})
+  }
+
+  if (info.menuItemId === 'summarize-link') {
+    // Open side panel and send link URL
+    await chrome.sidePanel.open({ windowId: tab.windowId })
+    chrome.runtime.sendMessage({
+      type: 'CONTEXT_MENU_SUMMARIZE',
+      mode: 'link',
+      url: info.linkUrl,
+      title: info.linkUrl
+    }).catch(() => {})
+  }
+})
+
 // Track the current tab URL to detect changes
 let currentTabUrl = null
 
@@ -110,6 +169,25 @@ async function fetchPageContent(url) {
   return text.slice(0, 30000)
 }
 
+// Helper to wait for tab to load
+function waitForTabLoad(tabId) {
+  return new Promise((resolve) => {
+    const listener = (updatedTabId, changeInfo) => {
+      if (updatedTabId === tabId && changeInfo.status === 'complete') {
+        chrome.tabs.onUpdated.removeListener(listener)
+        // Extra delay for YouTube's JavaScript to initialize
+        setTimeout(resolve, 2000)
+      }
+    }
+    chrome.tabs.onUpdated.addListener(listener)
+    // Timeout fallback after 15 seconds
+    setTimeout(() => {
+      chrome.tabs.onUpdated.removeListener(listener)
+      resolve()
+    }, 15000)
+  })
+}
+
 async function extractYouTubeContent(url) {
   // Extract video ID from URL
   const videoIdMatch = url.match(/[?&]v=([^&]+)/) || url.match(/youtu\.be\/([^?]+)/)
@@ -118,20 +196,53 @@ async function extractYouTubeContent(url) {
   }
   const videoId = videoIdMatch[1]
 
-  // Find the YouTube tab
+  // Find any open YouTube tab with this video
   const tabs = await chrome.tabs.query({ url: '*://www.youtube.com/watch*' })
-  const matchingTab = tabs.find(tab => tab.url && tab.url.includes(videoId))
+  let matchingTab = tabs.find(tab => tab.url && tab.url.includes(videoId))
+  let tabWasCreated = false
 
+  // If no open tab, open the video in a background window
   if (!matchingTab) {
-    // Fallback to description only
-    const response = await fetch(url)
-    const html = await response.text()
-    return extractYouTubeDescriptionFromHtml(html)
+    console.log('[YouTube] No open tab found, opening video in background window:', videoId)
+
+    const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}&autoplay=0`
+    const newWindow = await chrome.windows.create({
+      url: youtubeUrl,
+      type: 'normal',
+      width: 1280,
+      height: 900,
+      focused: false
+    })
+
+    matchingTab = { id: newWindow.tabs[0].id, _windowId: newWindow.id }
+    tabWasCreated = true
+
+    // Mute the tab immediately
+    await chrome.tabs.update(matchingTab.id, { muted: true })
+
+    // Wait for tab to load
+    await waitForTabLoad(matchingTab.id)
+
+    // Pause the video
+    await chrome.scripting.executeScript({
+      target: { tabId: matchingTab.id },
+      world: 'MAIN',
+      func: () => {
+        const video = document.querySelector('video')
+        if (video) {
+          video.pause()
+          video.muted = true
+        }
+      }
+    }).catch(() => {})
+
+    // Extra wait for YouTube's JS to initialize
+    await new Promise(r => setTimeout(r, 2000))
   }
 
-  console.log('[YouTube] Found tab:', matchingTab.id)
+  console.log('[YouTube] Using tab:', matchingTab.id, tabWasCreated ? '(auto-opened)' : '(existing)')
 
-  // Execute script to extract transcript from the current tab
+  // Execute script to extract transcript from the tab
   const results = await chrome.scripting.executeScript({
     target: { tabId: matchingTab.id },
     world: 'MAIN',
@@ -142,6 +253,10 @@ async function extractYouTubeContent(url) {
     const result = results[0].result
     if (result.success) {
       console.log('[YouTube] Got transcript, length:', result.data.transcript.length)
+      // Close the window if we auto-opened it
+      if (tabWasCreated && matchingTab._windowId) {
+        chrome.windows.remove(matchingTab._windowId).catch(() => {})
+      }
       let content = `YouTube Video: ${result.data.title}\n`
       if (result.data.channel) content += `Channel: ${result.data.channel}\n`
       content += `\nTranscript:\n${result.data.transcript}`
@@ -152,6 +267,11 @@ async function extractYouTubeContent(url) {
         console.log('[YouTube] Debug info:', JSON.stringify(result.debug))
       }
     }
+  }
+
+  // Close the window if we auto-opened it
+  if (tabWasCreated && matchingTab._windowId) {
+    chrome.windows.remove(matchingTab._windowId).catch(() => {})
   }
 
   // Fallback to description
