@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { jsPDF } from 'jspdf'
 import SettingsModal from './components/SettingsModal'
 import { useAISummary } from './hooks/useAISummary'
 
@@ -128,10 +129,70 @@ export default function App() {
   const handleCopy = async () => {
     if (!summary?.bullets) return
 
-    const text = summary.bullets.map((b, i) => `${i + 1}. ${b}`).join('\n')
+    const date = new Date().toLocaleDateString()
+    const bullets = summary.bullets.map((b, i) => `${i + 1}. ${b}`).join('\n')
+    const text = `${currentTab?.title || 'Summary'}\n${currentTab?.url || ''}\nSummarized on ${date}\n\n${bullets}`
+
     await navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleDownload = () => {
+    if (!summary?.bullets) return
+
+    const doc = new jsPDF()
+    const pageWidth = doc.internal.pageSize.getWidth()
+    const margin = 20
+    const maxWidth = pageWidth - margin * 2
+    let y = 20
+
+    // Title
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    const title = currentTab?.title || 'Summary'
+    const titleLines = doc.splitTextToSize(title, maxWidth)
+    doc.text(titleLines, margin, y)
+    y += titleLines.length * 7 + 5
+
+    // URL
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100, 100, 100)
+    if (currentTab?.url) {
+      const urlLines = doc.splitTextToSize(currentTab.url, maxWidth)
+      doc.text(urlLines, margin, y)
+      y += urlLines.length * 5 + 3
+    }
+
+    // Date
+    const date = new Date().toLocaleDateString()
+    doc.text(`Summarized on ${date}`, margin, y)
+    y += 15
+
+    // Bullets
+    doc.setFontSize(11)
+    doc.setTextColor(0, 0, 0)
+    summary.bullets.forEach((bullet, i) => {
+      const bulletText = `${i + 1}. ${bullet}`
+      const lines = doc.splitTextToSize(bulletText, maxWidth)
+
+      // Check if we need a new page
+      if (y + lines.length * 6 > doc.internal.pageSize.getHeight() - 20) {
+        doc.addPage()
+        y = 20
+      }
+
+      doc.text(lines, margin, y)
+      y += lines.length * 6 + 4
+    })
+
+    // Generate filename from title
+    const filename = (currentTab?.title || 'summary')
+      .replace(/[^a-z0-9]/gi, '_')
+      .substring(0, 50) + '.pdf'
+
+    doc.save(filename)
   }
 
   const domain = currentTab?.url ? (() => {
@@ -275,6 +336,16 @@ export default function App() {
                       Copy
                     </>
                   )}
+                </button>
+                <button
+                  onClick={handleDownload}
+                  className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded transition-colors"
+                  title="Download as PDF"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                  PDF
                 </button>
                 <button
                   onClick={() => handleSummarize(true)}
