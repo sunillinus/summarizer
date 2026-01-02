@@ -1,16 +1,22 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { jsPDF } from 'jspdf'
+import ReactMarkdown from 'react-markdown'
 import SettingsModal from './components/SettingsModal'
 import { useAISummary } from './hooks/useAISummary'
 
 export default function App() {
-  const { getSummary, summaries, loadingSummary } = useAISummary()
+  const { getSummary, summaries, loadingSummary, sendChatMessage, chatLoading } = useAISummary()
   const [currentTab, setCurrentTab] = useState(null)
   const [summary, setSummary] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [error, setError] = useState(null)
   const [isFirstLoad, setIsFirstLoad] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [pageContent, setPageContent] = useState(null)
+  const [chatMessages, setChatMessages] = useState([])
+  const [chatInput, setChatInput] = useState('')
+  const chatEndRef = useRef(null)
+  const inputRef = useRef(null)
 
   const isYouTubeUrl = (url) => url?.includes('youtube.com/watch') || url?.includes('youtu.be/')
 
@@ -123,6 +129,12 @@ export default function App() {
       setSummary(null)
     } else {
       setSummary(result)
+      // Fetch page content for chat context
+      chrome.runtime.sendMessage({ type: 'FETCH_PAGE_CONTENT', url: currentTab.url }, (response) => {
+        if (response?.content) {
+          setPageContent(response.content)
+        }
+      })
     }
   }
 
@@ -194,6 +206,41 @@ export default function App() {
 
     doc.save(filename)
   }
+
+  const handleSendChat = async () => {
+    if (!chatInput.trim() || chatLoading) return
+
+    const userMessage = chatInput.trim()
+    setChatInput('')
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }])
+
+    // Scroll to bottom
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+
+    const result = await sendChatMessage(userMessage, pageContent, summary?.bullets, chatMessages)
+
+    if (result.error) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${result.error}`, isError: true }])
+    } else {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: result.content }])
+    }
+
+    // Scroll to bottom after response
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendChat()
+    }
+  }
+
+  // Clear chat when tab changes
+  useEffect(() => {
+    setChatMessages([])
+    setPageContent(null)
+  }, [currentTab?.url])
 
   const domain = currentTab?.url ? (() => {
     try {
@@ -370,6 +417,88 @@ export default function App() {
                 </li>
               ))}
             </ul>
+
+            {/* Chat Section - Always visible */}
+            <div className="mt-6 border-t border-gray-200 pt-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clipRule="evenodd" />
+                </svg>
+                Ask a Question
+              </div>
+
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                {/* Chat Messages */}
+                <div className="max-h-72 overflow-y-auto p-3 space-y-3">
+                  {chatMessages.length === 0 && (
+                    <p className="text-sm text-gray-400 text-center py-4">
+                      Ask follow-up questions about this article...
+                    </p>
+                  )}
+                  {chatMessages.map((msg, i) => (
+                    <div
+                      key={i}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[90%] rounded-lg px-3 py-2 text-sm ${
+                          msg.role === 'user'
+                            ? 'bg-blue-600 text-white'
+                            : msg.isError
+                            ? 'bg-red-50 text-red-700 border border-red-200'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {msg.role === 'user' ? (
+                          msg.content
+                        ) : (
+                          <div className="prose prose-sm prose-gray max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1 [&>li]:my-0.5 [&>p:first-child]:mt-0 [&>p:last-child]:mb-0">
+                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  {chatLoading && (
+                    <div className="flex justify-start">
+                      <div className="bg-gray-100 rounded-lg px-3 py-2 text-sm text-gray-500">
+                        <span className="inline-flex gap-1">
+                          <span className="animate-bounce">.</span>
+                          <span className="animate-bounce" style={{ animationDelay: '0.1s' }}>.</span>
+                          <span className="animate-bounce" style={{ animationDelay: '0.2s' }}>.</span>
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+
+                {/* Chat Input */}
+                <div className="border-t border-gray-200 p-3">
+                  <div className="flex gap-2">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={chatInput}
+                      onChange={(e) => setChatInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Type a question..."
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      disabled={chatLoading}
+                    />
+                    <button
+                      onClick={handleSendChat}
+                      disabled={chatLoading || !chatInput.trim()}
+                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

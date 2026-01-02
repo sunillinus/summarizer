@@ -263,6 +263,121 @@ async function callChromeBuiltInAI(content) {
   }
 }
 
+// Chat API functions
+async function callClaudeChatAPI(apiKey, systemPrompt, messages) {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      system: systemPrompt,
+      messages: messages
+    })
+  })
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+
+  const data = await response.json()
+  return data.content[0]?.text || ''
+}
+
+async function callOpenAIChatAPI(apiKey, systemPrompt, messages) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...messages
+      ]
+    })
+  })
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+
+  const data = await response.json()
+  return data.choices[0]?.message?.content || ''
+}
+
+async function callGeminiChatAPI(apiKey, systemPrompt, messages) {
+  // Gemini uses a different format - combine into contents
+  const contents = messages.map(msg => ({
+    role: msg.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: msg.content }]
+  }))
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents
+      })
+    }
+  )
+
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+
+  const data = await response.json()
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
+}
+
+async function callChromeBuiltInChat(systemPrompt, messages) {
+  let session
+
+  if (typeof self !== 'undefined' && 'LanguageModel' in self) {
+    try {
+      const availability = await self.LanguageModel.availability()
+      if (availability === 'available' || availability === 'downloadable') {
+        session = await self.LanguageModel.create()
+      }
+    } catch (err) {
+      console.warn('LanguageModel API failed:', err)
+    }
+  }
+
+  if (!session && typeof self !== 'undefined' && self.ai?.languageModel) {
+    try {
+      const capabilities = await self.ai.languageModel.capabilities()
+      if (capabilities.available === 'readily' || capabilities.available === 'after-download') {
+        session = await self.ai.languageModel.create({ systemPrompt })
+      }
+    } catch (err) {
+      console.warn('Legacy AI API failed:', err)
+    }
+  }
+
+  if (!session) {
+    throw new Error('Chrome Built-in AI not available.')
+  }
+
+  try {
+    // Combine messages into a single prompt
+    const prompt = messages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')
+    return await session.prompt(`${systemPrompt}\n\n${prompt}`)
+  } finally {
+    session.destroy?.()
+  }
+}
+
 export function useAISummary() {
   const [summaries, setSummaries] = useState(new Map())
   const [loadingSummary, setLoadingSummary] = useState(null)
@@ -359,9 +474,67 @@ export function useAISummary() {
     }
   }, [summaries])
 
+  const [chatLoading, setChatLoading] = useState(false)
+
+  const sendChatMessage = useCallback(async (message, pageContent, summaryBullets, chatHistory) => {
+    setChatLoading(true)
+
+    try {
+      const settings = await chrome.storage.local.get(['aiProvider', 'apiKey'])
+      const provider = settings.aiProvider || 'chrome-builtin'
+
+      if (provider !== 'chrome-builtin' && !settings.apiKey) {
+        return { error: 'Please configure your API key in settings.' }
+      }
+
+      // Build context
+      const summaryText = summaryBullets?.map((b, i) => `${i + 1}. ${b}`).join('\n') || ''
+      const context = `Article content:\n${pageContent?.slice(0, 15000) || 'Not available'}\n\nSummary:\n${summaryText}`
+
+      const chatSystemPrompt = `You are a helpful assistant answering questions about an article the user has read. Use the article content and summary provided as context to answer questions accurately and concisely. If the answer isn't in the article, say so.`
+
+      // Build messages array with history
+      const messages = [
+        { role: 'user', content: `Context:\n${context}` },
+        { role: 'assistant', content: 'I\'ve reviewed the article. What would you like to know?' },
+        ...chatHistory.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        })),
+        { role: 'user', content: message }
+      ]
+
+      let response
+      switch (provider) {
+        case 'claude':
+          response = await callClaudeChatAPI(settings.apiKey, chatSystemPrompt, messages)
+          break
+        case 'openai':
+          response = await callOpenAIChatAPI(settings.apiKey, chatSystemPrompt, messages)
+          break
+        case 'gemini':
+          response = await callGeminiChatAPI(settings.apiKey, chatSystemPrompt, messages)
+          break
+        case 'chrome-builtin':
+        default:
+          response = await callChromeBuiltInChat(chatSystemPrompt, messages)
+          break
+      }
+
+      return { content: response }
+    } catch (error) {
+      console.error('Chat error:', error)
+      return { error: error.message || 'Failed to send message.' }
+    } finally {
+      setChatLoading(false)
+    }
+  }, [])
+
   return {
     summaries,
     getSummary,
-    loadingSummary
+    loadingSummary,
+    sendChatMessage,
+    chatLoading
   }
 }
