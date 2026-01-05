@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-Summarizer is a Chrome extension (Manifest V3) that summarizes webpages with AI. It auto-summarizes the current tab when the side panel opens.
+Bulletify.ai is a Chrome extension (Manifest V3) that summarizes webpages with AI. It auto-summarizes the current tab when the side panel opens.
 
 ## Tech Stack
 

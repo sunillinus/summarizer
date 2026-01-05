@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Summarizer",
+  "name": "Bulletify.ai",
   "version": "1.0.0",
   "description": "Summarize any webpage with AI - one click or auto-summarize on open",
   "permissions": [
@@ -18,7 +18,7 @@
     "default_path": "sidepanel.html"
   },
   "action": {
-    "default_title": "Open Summarizer",
+    "default_title": "Open Bulletify.ai",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png",
