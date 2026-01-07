@@ -263,9 +263,9 @@ export default function App() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">S</span>
+              <span className="text-white font-bold text-sm">B</span>
             </div>
-            <h1 className="font-semibold text-gray-900">Summarizer</h1>
+            <h1 className="font-semibold text-gray-900">Bulletify.ai</h1>
           </div>
           <button
             onClick={() => setSettingsOpen(true)}
