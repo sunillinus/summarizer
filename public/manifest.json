@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Bulletify.ai",
   "version": "1.0.0",
-  "description": "Summarize any webpage with AI - one click or auto-summarize on open",
+  "description": "Bulletify any webpage with AI - get key points in one click",
   "permissions": [
     "sidePanel",
     "storage",

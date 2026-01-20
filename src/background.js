@@ -10,19 +10,19 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: 'summarize-page',
-    title: 'Summarize this page',
+    title: 'Bulletify this page',
     contexts: ['page']
   })
 
   chrome.contextMenus.create({
     id: 'summarize-selection',
-    title: 'Summarize selection',
+    title: 'Bulletify selection',
     contexts: ['selection']
   })
 
   chrome.contextMenus.create({
     id: 'summarize-link',
-    title: 'Summarize linked page',
+    title: 'Bulletify linked page',
     contexts: ['link']
   })
 })

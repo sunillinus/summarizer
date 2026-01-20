@@ -1,6 +1,577 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================
+   WARM STONE UI THEME
+   A warm, professional design system with amber accents
+
+   Usage:
+   1. Import Tailwind: @import "tailwindcss";
+   2. Add dark mode variant: @custom-variant dark (&:where(.dark, .dark *));
+   3. Import or copy this file into your project's main CSS
+
+   For dark mode toggle, add this to your HTML <head>:
+   <script>
+     if (localStorage.theme === 'dark' ||
+         (!localStorage.theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+       document.documentElement.classList.add('dark');
+     }
+   </script>
+   ============================================ */
+
+/* ============================================
+   THEME VARIABLES
+   ============================================ */
+
+:root {
+  /* Typography */
+  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Light mode - warm stone tones */
+  --bg-base: #fafaf9;
+  --bg-elevated: #ffffff;
+  --bg-hover: #f5f5f4;
+  --bg-active: #e7e5e4;
+  --border: #d6d3d1;
+  --border-muted: #e7e5e4;
+  --text-primary: #1c1917;
+  --text-secondary: #57534e;
+  --text-muted: #a8a29e;
+
+  /* Accent - amber */
+  --accent: #f59e0b;
+  --accent-hover: #d97706;
+  --accent-muted: #fef3c7;
+  --accent-subtle: rgba(245, 158, 11, 0.08);
+  --accent-text: #92400e;
+}
+
+:root.dark {
+  /* Dark mode - warm stone tones */
+  --bg-base: #0c0a09;
+  --bg-elevated: #1c1917;
+  --bg-hover: #292524;
+  --bg-active: #44403c;
+  --border: #44403c;
+  --border-muted: #292524;
+  --text-primary: #fafaf9;
+  --text-secondary: #a8a29e;
+  --text-muted: #78716c;
+
+  /* Accent - amber (adjusted for dark) */
+  --accent: #f59e0b;
+  --accent-hover: #fbbf24;
+  --accent-muted: #78350f;
+  --accent-subtle: rgba(245, 158, 11, 0.15);
+  --accent-text: #fcd34d;
+}
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
+
 html, body, #root {
   height: 100%;
   margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  font-family: var(--font-display);
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Monospace elements */
+.font-mono, code, pre, kbd,
+[data-mono] {
+  font-family: var(--font-mono);
+}
+
+/* Stats and counts - always monospace with tabular nums */
+.stat-number {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================
+   SEMANTIC UTILITY CLASSES
+   Use these instead of hardcoded Tailwind colors
+   ============================================ */
+
+/* Backgrounds */
+.bg-theme-base { background-color: var(--bg-base); }
+.bg-theme-elevated { background-color: var(--bg-elevated); }
+.bg-theme-hover { background-color: var(--bg-hover); }
+.bg-theme-active { background-color: var(--bg-active); }
+.bg-theme-accent { background-color: var(--accent); }
+.bg-theme-accent-subtle { background-color: var(--accent-subtle); }
+.bg-theme-accent-muted { background-color: var(--accent-muted); }
+
+/* Text */
+.text-theme-primary { color: var(--text-primary); }
+.text-theme-secondary { color: var(--text-secondary); }
+.text-theme-muted { color: var(--text-muted); }
+.text-theme-accent { color: var(--accent); }
+.text-theme-accent-text { color: var(--accent-text); }
+
+/* Borders */
+.border-theme { border-color: var(--border); }
+.border-theme-muted { border-color: var(--border-muted); }
+.border-theme-accent { border-color: var(--accent); }
+
+/* Hover states */
+.hover\:bg-theme-hover:hover { background-color: var(--bg-hover); }
+.hover\:bg-theme-active:hover { background-color: var(--bg-active); }
+.hover\:bg-theme-accent:hover { background-color: var(--accent); }
+.hover\:bg-theme-accent-hover:hover { background-color: var(--accent-hover); }
+.hover\:text-theme-primary:hover { color: var(--text-primary); }
+.hover\:border-theme:hover { border-color: var(--border); }
+
+/* Focus states */
+.focus\:ring-theme-accent:focus {
+  --tw-ring-color: var(--accent);
+}
+.focus\:border-theme-accent:focus {
+  border-color: var(--accent);
+}
+
+/* ============================================
+   BUTTON STYLES
+   ============================================ */
+
+/* Primary button - amber background */
+.btn-primary {
+  background-color: var(--accent);
+  color: #000;
+  font-weight: 600;
+  transition: background-color 0.15s ease;
+}
+.btn-primary:hover {
+  background-color: var(--accent-hover);
+}
+
+/* Secondary button - subtle with border */
+.btn-secondary {
+  background-color: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  transition: all 0.15s ease;
+}
+.btn-secondary:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-muted);
+}
+
+/* Primary header action (icon button) */
+.header-btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: var(--accent);
+  color: white;
+  transition: all 0.15s ease;
+}
+.header-btn-primary:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+.header-btn-primary:active {
+  transform: translateY(0);
+}
+
+/* Secondary header action */
+.header-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  color: var(--text-secondary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  transition: all 0.15s ease;
+}
+.header-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-muted);
+}
+
+/* Subtle utility button */
+.header-btn-subtle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+.header-btn-subtle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ============================================
+   CARD SYSTEM
+   Three-level hierarchy: window > group > item
+   ============================================ */
+
+/* Top-level card with subtle depth */
+.card-window {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 12px rgba(0, 0, 0, 0.03);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* Top accent line for premium feel */
+.card-window::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--border-muted) 20%,
+    var(--border-muted) 80%,
+    transparent 100%
+  );
+  opacity: 0.6;
+}
+
+.card-window:hover {
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+/* Dark mode card shadows */
+.dark .card-window {
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.2),
+    0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.dark .card-window:hover {
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.3),
+    0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+/* Selected card state */
+.card-window.selected {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px var(--accent-subtle),
+    0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Group card with left color accent */
+.card-group {
+  position: relative;
+  border-radius: 0.5rem;
+  transition: background-color 0.15s ease;
+}
+
+/* Colored left bar indicator */
+.card-group::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 3px;
+  border-radius: 3px;
+  background-color: var(--group-color, var(--text-muted));
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
+}
+.card-group:hover::before {
+  opacity: 1;
+}
+
+/* Group header with subtle color tint */
+.card-group-header {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--group-color, transparent) 6%, transparent) 0%,
+    transparent 50%
+  );
+  border-radius: 0.5rem;
+  transition: background 0.15s ease;
+}
+.card-group-header:hover {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--group-color, transparent) 10%, var(--bg-hover)) 0%,
+    var(--bg-hover) 50%
+  );
+}
+
+/* Selected group */
+.card-group.selected .card-group-header {
+  background: var(--bg-active);
+}
+
+/* Item card (smallest level) */
+.card-tab {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-muted);
+  border-radius: 0.5rem;
+  transition: all 0.15s ease;
+}
+.card-tab:hover {
+  border-color: var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+.dark .card-tab:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Selected item */
+.card-tab.selected {
+  background: var(--bg-active);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+
+/* Active item indicator */
+.card-tab.active {
+  border-color: var(--accent);
+  border-width: 2px;
+}
+
+/* List view item variant */
+.card-tab-list {
+  border-radius: 0.375rem;
+  transition: background-color 0.15s ease;
+}
+.card-tab-list:hover {
+  background-color: var(--bg-hover);
+}
+.card-tab-list.selected {
+  background-color: var(--bg-active);
+}
+.card-tab-list.active {
+  background-color: var(--bg-hover);
+  border-left: 2px solid var(--accent);
+  padding-left: calc(0.5rem - 2px);
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+/* Card entrance - slide up with fade */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-card-enter {
+  animation: card-enter 0.3s ease-out backwards;
+}
+
+/* Stagger delays for sequential card animations */
+.stagger-1 { animation-delay: 0ms; }
+.stagger-2 { animation-delay: 40ms; }
+.stagger-3 { animation-delay: 80ms; }
+.stagger-4 { animation-delay: 120ms; }
+.stagger-5 { animation-delay: 160ms; }
+.stagger-6 { animation-delay: 200ms; }
+.stagger-7 { animation-delay: 240ms; }
+.stagger-8 { animation-delay: 280ms; }
+.stagger-9 { animation-delay: 320ms; }
+.stagger-10 { animation-delay: 360ms; }
+.stagger-11 { animation-delay: 400ms; }
+.stagger-12 { animation-delay: 440ms; }
+
+/* Item entrance - scale up with fade (faster) */
+@keyframes tab-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-tab-enter {
+  animation: tab-enter 0.2s ease-out backwards;
+}
+
+/* Expand/collapse animations */
+@keyframes expand-down {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    max-height: 2000px;
+    transform: translateY(0);
+  }
+}
+.animate-expand {
+  animation: expand-down 0.25s ease-out;
+  overflow: hidden;
+}
+
+/* Simple fade in */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+/* Gentle float for illustrations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Toast slide up */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Accessibility - respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  .animate-card-enter,
+  .animate-tab-enter,
+  .animate-expand,
+  .animate-fade-in,
+  .animate-slide-up,
+  .animate-float {
+    animation: none;
+  }
+  .card-tab:hover {
+    transform: none;
+  }
+}
+
+/* ============================================
+   CUSTOM SCROLLBAR
+   ============================================ */
+
+/* Webkit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+  transition: background 0.15s ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg-base);
+}
+
+/* Subtle scrollbar - hidden until hover */
+.overflow-y-auto:not(:hover)::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+.overflow-y-auto:hover::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
+
+/* ============================================
+   INPUT STYLES
+   ============================================ */
+
+.input-theme {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  color: var(--text-primary);
+  transition: all 0.15s ease;
+}
+.input-theme:hover {
+  border-color: var(--border-muted);
+}
+.input-theme:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-subtle);
+}
+.input-theme::placeholder {
+  color: var(--text-muted);
+}
+
+/* ============================================
+   MODAL/OVERLAY STYLES
+   ============================================ */
+
+.modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+.dark .modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+.modal-content {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.1),
+    0 20px 40px rgba(0, 0, 0, 0.15);
+}
+.dark .modal-content {
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.3),
+    0 20px 40px rgba(0, 0, 0, 0.4);
 }
