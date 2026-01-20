@@ -1,16 +1,73 @@
-# React + Vite
+# Bulletify.ai
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A Chrome extension that transforms any webpage into concise bullet points using AI. Get the key takeaways from articles, documentation, and YouTube videos in one click.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **One-Click Summarization** - Click the extension icon to instantly bulletify the current page
+- **Auto-Summarize** - Automatically generates bullet points when you open the side panel
+- **YouTube Support** - Extracts and summarizes video transcripts
+- **Text Selection** - Right-click to summarize selected text
+- **Link Summarization** - Right-click any link to summarize the linked page
+- **Follow-Up Chat** - Ask questions about the content after summarizing
+- **Export Options** - Copy to clipboard or download as PDF
+- **Smart Caching** - Summaries are cached to avoid regenerating on revisit
+- **Dark Mode** - Warm Stone UI theme with light/dark mode support
 
-## React Compiler
+## Supported AI Providers
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Provider | Notes |
+|----------|-------|
+| Chrome Built-in AI (Gemini Nano) | Free, runs locally, requires Chrome 127+ |
+| Claude API | Requires API key |
+| OpenAI API (GPT-4o mini) | Requires API key |
+| Gemini API | Requires API key |
 
-## Expanding the ESLint configuration
+## Installation
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### From Source
+
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Build the extension:
+   ```bash
+   npm run build
+   ```
+4. Load in Chrome:
+   - Navigate to `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked"
+   - Select the `dist/` folder
+
+## Usage
+
+1. Click the Bulletify.ai icon in your Chrome toolbar to open the side panel
+2. The current page will be automatically summarized
+3. Use the context menu (right-click) to:
+   - Bulletify the current page
+   - Bulletify selected text
+   - Bulletify a linked page
+4. Ask follow-up questions in the chat section
+5. Copy or download your summary
+
+## Development
+
+```bash
+npm install        # Install dependencies
+npm run dev        # Start dev server with hot reload
+npm run build      # Production build
+```
+
+## Tech Stack
+
+- React 19
+- Vite
+- Tailwind CSS v4
+- Chrome Extension Manifest V3
+
+## License
+
+MIT
