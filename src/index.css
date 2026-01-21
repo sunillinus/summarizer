@@ -4,7 +4,7 @@
 
 /* ============================================
    WARM STONE UI THEME
-   A warm, professional design system with amber accents
+   A warm, professional design system with vibrant red accents
 
    Usage:
    1. Import Tailwind: @import "tailwindcss";
@@ -40,12 +40,12 @@
   --text-secondary: #57534e;
   --text-muted: #a8a29e;
 
-  /* Accent - amber */
-  --accent: #f59e0b;
-  --accent-hover: #d97706;
-  --accent-muted: #fef3c7;
-  --accent-subtle: rgba(245, 158, 11, 0.08);
-  --accent-text: #92400e;
+  /* Accent - vibrant red */
+  --accent: #FF0038;
+  --accent-hover: #e60032;
+  --accent-muted: #ffe5ea;
+  --accent-subtle: rgba(255, 0, 56, 0.08);
+  --accent-text: #b30027;
 }
 
 :root.dark {
@@ -60,12 +60,12 @@
   --text-secondary: #a8a29e;
   --text-muted: #78716c;
 
-  /* Accent - amber (adjusted for dark) */
-  --accent: #f59e0b;
-  --accent-hover: #fbbf24;
-  --accent-muted: #78350f;
-  --accent-subtle: rgba(245, 158, 11, 0.15);
-  --accent-text: #fcd34d;
+  /* Accent - vibrant red (adjusted for dark) */
+  --accent: #FF0038;
+  --accent-hover: #ff3366;
+  --accent-muted: #4d0011;
+  --accent-subtle: rgba(255, 0, 56, 0.15);
+  --accent-text: #ff8099;
 }
 
 /* ============================================
@@ -144,10 +144,10 @@ body {
    BUTTON STYLES
    ============================================ */
 
-/* Primary button - amber background */
+/* Primary button - slate gray background */
 .btn-primary {
   background-color: var(--accent);
-  color: #000;
+  color: #fff;
   font-weight: 600;
   transition: background-color 0.15s ease;
 }
